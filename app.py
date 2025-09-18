@@ -1,6 +1,3 @@
-# app.py
-# Professional CV Optimizer using Streamlit and Hugging Face Inference API
-
 import streamlit as st
 import io
 import re
@@ -26,7 +23,9 @@ def run_inference_api(prompt: str, max_tokens: int = 2048) -> dict:
     except (KeyError, FileNotFoundError):
         return {"error": "Hugging Face API token not found in Streamlit Secrets."}
 
-    API_URL = "https://api-inference.huggingface.co/models/google/flan-ul2"
+    # --- FINAL MODEL FIX ---
+    # Switched to Zephyr-7B-Beta, a powerful and reliably available model.
+    API_URL = "https://api-inference.huggingface.co/models/HuggingFaceH4/zephyr-7b-beta"
     headers = {"Authorization": f"Bearer {hf_token}"}
     payload = {
         "inputs": prompt,
@@ -62,8 +61,10 @@ def get_detailed_analysis(resume_text: str, jd_text: str) -> dict:
     """
     Performs the quantitative analysis for skills, ATS checks, etc.
     """
-    prompt = f"""
-You are an expert AI resume analyst. Your task is to perform a detailed analysis of the provided resume against the job description. Return a single, valid JSON object.
+    # Re-added the instruction format for better model performance.
+    prompt = f"""<|system|>
+You are an expert AI resume analyst. Your task is to perform a detailed analysis of the provided resume against the job description. Return a single, valid JSON object.</s>
+<|user|>
 The JSON object must have this structure:
 {{
   "hard_skills": [{{"skill": "Skill Name", "resume_count": integer, "jd_count": integer}}],
@@ -77,7 +78,8 @@ Instructions:
 2.  Analyze job title match, measurable results, and resume tone as described in the JSON structure.
 
 Resume Text: --- {resume_text} ---
-Job Description Text: --- {jd_text} ---
+Job Description Text: --- {jd_text} ---</s>
+<|assistant|>
 """
     return run_inference_api(prompt)
 
@@ -85,9 +87,9 @@ def get_recruiter_feedback(resume_text: str, jd_text: str) -> dict:
     """
     Performs the qualitative analysis using the Senior Recruiter persona.
     """
-    prompt = f"""
-You’re a senior Frontend/Fullstack recruiter & resume writer with 15+ years of experience. Given the user's current CV and a target job description, please perform a detailed analysis. Your tone is encouraging, expert, and direct.
-Return a single, valid JSON object with no other text or explanation.
+    prompt = f"""<|system|>
+You’re a senior Frontend/Fullstack recruiter & resume writer with 15+ years of experience. Given the user's current CV and a target job description, please perform a detailed analysis. Your tone is encouraging, expert, and direct. Return a single, valid JSON object with no other text or explanation.</s>
+<|user|>
 The JSON object must have this structure:
 {{
   "match_score": integer,
@@ -107,7 +109,8 @@ Instructions:
 4. Write in clear, simple English. Avoid robotic or overly complex words.
 
 Current CV: --- {resume_text} ---
-Target Job Description: --- {jd_text} ---
+Target Job Description: --- {jd_text} ---</s>
+<|assistant|>
 """
     return run_inference_api(prompt, max_tokens=2048)
 
@@ -206,5 +209,5 @@ if st.button("✨ Generate Full Analysis Report", type="primary", use_container_
                         if detailed_analysis.get('soft_skills'):
                             df_soft = pd.DataFrame(detailed_analysis['soft_skills'])
                             df_soft.columns = ["Skill", "Resume Count", "Job Description Count"]
-                            df_soft['Match'] = df_soft['Resume Count'].apply(lambda x: "✅" if x > 0 else "❌")
+                            df_soft['Match'] = df_soft['Match'] = df_soft['Resume Count'].apply(lambda x: "✅" if x > 0 else "❌")
                             st.dataframe(df_soft[['Skill', 'Match', 'Job Description Count']], use_container_width=True, hide_index=True)
